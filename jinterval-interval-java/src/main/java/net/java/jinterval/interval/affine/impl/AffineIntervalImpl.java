@@ -7,12 +7,10 @@ import net.java.jinterval.interval.affine.interfaces.AffineInterval;
 import net.java.jinterval.interval.affine.interfaces.NoiseSymbol;
 import net.java.jinterval.interval.set.OverlapState;
 import net.java.jinterval.interval.set.SetInterval;
-import net.java.jinterval.rational.BinaryValueSet;
-import net.java.jinterval.rational.ExtendedRational;
-import net.java.jinterval.rational.ExtendedRationalOps;
-import net.java.jinterval.rational.Rational;
+import net.java.jinterval.rational.*;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -86,17 +84,17 @@ public class AffineIntervalImpl implements AffineInterval {
 
     @Override
     public ExtendedRational inf(BinaryValueSet numberFormat) {
-        return null;
+        return ExtendedRationalContexts.mkFloor(numberFormat).sub(centralValue, rad());
     }
 
     @Override
     public double doubleInf() {
-        return 0;
+        return inf().doubleValue();
     }
 
     @Override
     public float floatInf() {
-        return 0;
+        return inf().floatValue();
     }
 
     @Override
@@ -106,17 +104,17 @@ public class AffineIntervalImpl implements AffineInterval {
 
     @Override
     public ExtendedRational sup(BinaryValueSet numberFormat) {
-        return null;
+        return ExtendedRationalContexts.mkCeiling(numberFormat).add(centralValue, rad());
     }
 
     @Override
     public double doubleSup() {
-        return 0;
+        return sup().doubleValue();
     }
 
     @Override
     public float floatSup() {
-        return 0;
+        return sup().floatValue();
     }
 
     @Override
@@ -126,116 +124,155 @@ public class AffineIntervalImpl implements AffineInterval {
 
     @Override
     public Rational mid(BinaryValueSet numberFormat) {
-        return null;
+        return (Rational) ExtendedRationalContexts.mkNearest(numberFormat);
     }
 
     @Override
     public double doubleMid() {
-        return 0;
+        return mid().doubleValue();
     }
 
     @Override
     public float floatMid() {
-        return 0;
+        return mid().floatValue();
     }
 
     @Override
     public ExtendedRational wid() {
-        return null;
+        return ExtendedRationalOps.mul(rad(), ExtendedRational.valueOf(2));
     }
 
     @Override
     public ExtendedRational wid(BinaryValueSet numberFormat) {
-        return null;
+        return ExtendedRationalContexts.mkCeiling(numberFormat).mul(rad(), ExtendedRational.valueOf(2));
     }
 
     @Override
     public double doubleWid() {
-        return 0;
+        return wid().doubleValue();
     }
 
     @Override
     public float floatWid() {
-        return 0;
+        return wid().floatValue();
     }
 
     @Override
     public ExtendedRational rad() {
         ExtendedRational rad = Rational.zero();
-        for (NoiseSymbol noiseSymbol : getNoiseSymbolSet()) {
-            rad = ExtendedRationalOps.add(rad, ExtendedRationalOps.abs(getPartialDeviationForNoiseSymbol(noiseSymbol)));
+        for (ExtendedRational partialDeviation : partialDeviations.values()) {
+            rad = ExtendedRationalOps.add(rad, ExtendedRationalOps.abs(partialDeviation));
         }
+
         return rad;
     }
 
     @Override
     public ExtendedRational rad(BinaryValueSet numberFormat) {
-        return null;
+        ExtendedRational rad = Rational.zero();
+        ExtendedRationalContext context = ExtendedRationalContexts.mkCeiling(numberFormat);
+
+        for (ExtendedRational partialDeviation : partialDeviations.values()) {
+            rad = context.add(rad, context.abs(partialDeviation));
+        }
+
+        return rad;
     }
 
     @Override
     public double doubleRad() {
-        return 0;
+        return rad().doubleValue();
     }
 
     @Override
     public float floatRad() {
-        return 0;
+        return rad().floatValue();
     }
 
     @Override
     public MidRad midRad() {
-        return null;
+        return new MidRad(mid(), rad());
     }
 
     @Override
-    public MidRad midRad(BinaryValueSet midNumberFormat, BinaryValueSet radNumberFormar) {
-        return null;
+    public MidRad midRad(BinaryValueSet midNumberFormat, BinaryValueSet radNumberFormat) {
+        return new MidRad(mid(midNumberFormat), rad(radNumberFormat));
     }
 
     @Override
     public ExtendedRational mag() {
-        return null;
+        return ExtendedRationalOps.max(ExtendedRationalOps.abs(inf()), ExtendedRationalOps.abs(sup()));
     }
 
     @Override
     public ExtendedRational mag(BinaryValueSet numberFormat) {
-        return null;
+        ExtendedRationalContext context = ExtendedRationalContexts.mkCeiling(numberFormat);
+        return context.max(context.abs(inf()), context.abs(sup()));
     }
 
     @Override
     public double doubleMag() {
-        return 0;
+        return mag().doubleValue();
     }
 
     @Override
     public float floatMag() {
-        return 0;
+        return mag().floatValue();
     }
 
     @Override
     public ExtendedRational mig() {
-        return null;
+        return ExtendedRationalOps.min(ExtendedRationalOps.abs(inf()), ExtendedRationalOps.abs(sup()));
     }
 
     @Override
     public ExtendedRational mig(BinaryValueSet numberFormat) {
-        return null;
+        ExtendedRationalContext context = ExtendedRationalContexts.mkCeiling(numberFormat);
+        return context.min(context.abs(inf()), context.abs(sup()));
     }
 
     @Override
     public double doubleMig() {
-        return 0;
+        return mig().doubleValue();
     }
 
     @Override
     public float floatMig() {
-        return 0;
+        return mig().floatValue();
     }
 
     @Override
     public boolean equal(Interval that) {
-        return false;
+        if (that instanceof AffineIntervalImpl) {
+            if (this.centralValue.eq(((AffineIntervalImpl) that).centralValue)) {
+                Set<NoiseSymbol> thisSymbols = this.getNoiseSymbolSet();
+                Set<NoiseSymbol> thatSymbols = ((AffineIntervalImpl) that).getNoiseSymbolSet();
+                Set<NoiseSymbol> unionSymbols = new HashSet<>(thisSymbols);
+                unionSymbols.addAll(thatSymbols);
+
+                for (NoiseSymbol noiseSymbol : unionSymbols) {
+                    if (thisSymbols.contains(noiseSymbol) && thisSymbols.contains(noiseSymbol)) {
+                        if (!this.getPartialDeviationForNoiseSymbol(noiseSymbol)
+                                .eq(((AffineIntervalImpl) that).getPartialDeviationForNoiseSymbol(noiseSymbol))) {
+                            return false;
+                        }
+                    } else if (!thisSymbols.contains(noiseSymbol)) {
+                        if (!((AffineIntervalImpl) that).getPartialDeviationForNoiseSymbol(noiseSymbol)
+                                .eq(ExtendedRational.zero())) {
+                            return false;
+                        }
+                    } else {
+                        if (!this.getPartialDeviationForNoiseSymbol(noiseSymbol).eq(ExtendedRational.zero())) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+            return false;
+        } else {
+            return this.inf().equals(that.inf()) && this.sup().equals(that.sup());
+        }
     }
 
     @Override
@@ -265,7 +302,7 @@ public class AffineIntervalImpl implements AffineInterval {
 
     @Override
     public String toStringDecorated() {
-        return null;
+        return toString() + "_" + getDecoration().toString().toLowerCase();
     }
 
     @Override
@@ -335,6 +372,11 @@ public class AffineIntervalImpl implements AffineInterval {
 
     @Override
     public Decoration getDecoration() {
-        return null;
+        return Decoration.TRV;
+    }
+
+    @Override
+    public String toString() {
+        return "[" + inf() + "," + sup() + "]";
     }
 }

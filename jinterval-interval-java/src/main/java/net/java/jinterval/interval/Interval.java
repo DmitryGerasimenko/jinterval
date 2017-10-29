@@ -107,7 +107,7 @@ public interface Interval {
      */
     public MidRad midRad();
     
-    public MidRad midRad(BinaryValueSet midNumberFormat, BinaryValueSet radNumberFormar);
+    public MidRad midRad(BinaryValueSet midNumberFormat, BinaryValueSet radNumberFormat);
     
     /**
      * Level 1 mag
