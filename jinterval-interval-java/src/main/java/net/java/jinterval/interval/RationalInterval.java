@@ -34,7 +34,7 @@ import net.java.jinterval.rational.*;
 /**
  *
  */
-class RationalInterval implements Interval {
+public class RationalInterval implements Interval {
 
     private final ExtendedRational inf;
     private final ExtendedRational sup;
@@ -531,9 +531,9 @@ class RationalInterval implements Interval {
         }
     }
 
-    static class Unbounded extends RationalInterval implements SetInterval {
+    public static class Unbounded extends RationalInterval implements SetInterval {
 
-        Unbounded(ExtendedRational inf, ExtendedRational sup, Decoration decoration) {
+        public Unbounded(ExtendedRational inf, ExtendedRational sup, Decoration decoration) {
             super(inf, sup, decoration);
             if (inf.compareTo(sup) > 0) {
                 throw new IllegalArgumentException();
