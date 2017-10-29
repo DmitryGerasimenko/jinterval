@@ -36,7 +36,7 @@ import net.java.jinterval.rational.Rational;
 /**
  *
  */
-class EmptyInterval implements SetInterval {
+public class EmptyInterval implements SetInterval {
 
     public static final EmptyInterval NaI = new EmptyInterval(Decoration.ILL);
     public static final EmptyInterval Empty = new EmptyInterval(Decoration.TRV);
@@ -50,7 +50,7 @@ class EmptyInterval implements SetInterval {
     }
     private final Decoration decoration;
 
-    private EmptyInterval(Decoration decoration) {
+    protected EmptyInterval(Decoration decoration) {
         if (decoration == null) {
             throw new NullPointerException();
         }
