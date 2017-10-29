@@ -6,6 +6,7 @@ import net.java.jinterval.interval.affine.interfaces.AffineIntervalContext;
 import net.java.jinterval.interval.affine.interfaces.NoiseSymbol;
 import net.java.jinterval.rational.ExtendedRational;
 import net.java.jinterval.rational.ExtendedRationalContext;
+import net.java.jinterval.rational.ExtendedRationalOps;
 
 import java.math.BigInteger;
 import java.util.HashSet;
@@ -36,12 +37,11 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
     @Override
     public AffineInterval affine(AffineInterval x, AffineInterval y, ExtendedRational alpha, ExtendedRational beta,
                               ExtendedRational zeta, ExtendedRational delta) {
-        if (x instanceof EmptyAffineInterval || y instanceof EmptyAffineInterval) {
+        if (x.isEmpty() || y.isEmpty()) {
             return EmptyAffineInterval.empty();
         }
 
-        if (x instanceof EntireAffineInterval || y instanceof EntireAffineInterval
-                || delta.eq(ExtendedRational.POSITIVE_INFINITY)) {
+        if (x.isEntire() || y.isEntire() || delta.eq(ExtendedRational.POSITIVE_INFINITY)) {
             return EntireAffineInterval.entire();
         }
 
@@ -55,7 +55,7 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
         ExtendedRational a = mcInf.add(mcInf.mul(alpha, x.mid()), mcInf.add(mcInf.mul(beta, y.mid()), zeta));
         ExtendedRational b = mcSup.add(mcSup.mul(alpha, x.mid()), mcSup.add(mcSup.mul(beta, y.mid()), zeta));
-        delta = mcSup.max(mcSup.sub(b, z0), mcSup.sub(z0, a));
+        delta = mcSup.add(mcSup.max(mcSup.sub(b, z0), mcSup.sub(z0, a)), delta);
 
         Set<NoiseSymbol> unionNoiseSymbolSet = new HashSet<>();
         unionNoiseSymbolSet.addAll(x.getNoiseSymbolSet());
@@ -164,22 +164,43 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval neg(AffineInterval x) {
-        return null;
+        if (x.isEmpty() || x.isEntire()) {
+            return x;
+        }
+
+        AffineInterval negated = new AffineIntervalImpl(ExtendedRationalOps.neg(x.mid()));
+        for (NoiseSymbol noiseSymbol : x.getNoiseSymbolSet()) {
+            negated.putNoiseSymbolPartialDeviation(noiseSymbol,
+                    ExtendedRationalOps.neg(x.getPartialDeviationForNoiseSymbol(noiseSymbol)));
+        }
+        return negated;
     }
 
     @Override
     public AffineInterval add(AffineInterval x, AffineInterval y) {
-        return null;
+        return affine(x, y, ExtendedRational.one(), ExtendedRational.one(), ExtendedRational.zero(),
+                ExtendedRational.zero());
     }
 
     @Override
     public AffineInterval sub(AffineInterval x, AffineInterval y) {
-        return null;
+        return add(x, neg(y));
     }
 
     @Override
     public AffineInterval mul(AffineInterval x, AffineInterval y) {
-        return null;
+        if (x.isEmpty() || y.isEmpty()) {
+            return EmptyAffineInterval.empty();
+        }
+
+        if (x.isEntire() || y.isEntire()) {
+            return EntireAffineInterval.entire();
+        }
+
+        ExtendedRational product = ExtendedRationalOps.neg(ExtendedRationalOps.mul(x.mid(), y.mid()));
+        ExtendedRational delta = mcSup.mul(x.rad(), y.rad());
+
+        return affine(x, y, y.mid(), x.mid(), product, delta);
     }
 
     @Override
