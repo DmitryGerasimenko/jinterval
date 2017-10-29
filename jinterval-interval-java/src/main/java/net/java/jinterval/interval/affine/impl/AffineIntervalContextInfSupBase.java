@@ -6,7 +6,6 @@ import net.java.jinterval.interval.affine.interfaces.AffineIntervalContext;
 import net.java.jinterval.interval.affine.interfaces.NoiseSymbol;
 import net.java.jinterval.rational.ExtendedRational;
 import net.java.jinterval.rational.ExtendedRationalContext;
-import net.java.jinterval.rational.ExtendedRationalOps;
 
 import java.math.BigInteger;
 import java.util.HashSet;
@@ -16,11 +15,14 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
     private static final String DEFAULT_SYMBOL_NAME = "eps_";
     private final ExtendedRationalContext mcInf;
     private final ExtendedRationalContext mcSup;
+    private final ExtendedRationalContext mcMid;
     private Set<NoiseSymbol> noiseSymbolSet;
     private int defaultSymbolNumber;
 
-    public AffineIntervalContextInfSupBase(ExtendedRationalContext mcInf, ExtendedRationalContext mcSup) {
+    public AffineIntervalContextInfSupBase(ExtendedRationalContext mcInf, ExtendedRationalContext mcMid,
+                                           ExtendedRationalContext mcSup) {
         this.mcInf = mcInf;
+        this.mcMid = mcMid;
         this.mcSup = mcSup;
         noiseSymbolSet = new HashSet<>();
         defaultSymbolNumber = 0;
@@ -43,8 +45,8 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
             return EntireAffineInterval.entire();
         }
 
-        ExtendedRational z0 = ExtendedRationalOps.add(ExtendedRationalOps.mul(alpha, x.mid()),
-                ExtendedRationalOps.add(ExtendedRationalOps.mul(beta, y.mid()), zeta));
+        ExtendedRational z0 = mcMid.add(mcMid.mul(alpha, x.mid()),
+                mcMid.add(mcMid.mul(beta, y.mid()), zeta));
         if (z0.eq(ExtendedRational.POSITIVE_INFINITY)) {
             return EntireAffineInterval.entire();
         }
@@ -60,9 +62,9 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
         unionNoiseSymbolSet.addAll(y.getNoiseSymbolSet());
 
         for (NoiseSymbol noiseSymbol : unionNoiseSymbolSet) {
-            ExtendedRational zi = ExtendedRationalOps.add(
-                    ExtendedRationalOps.mul(alpha, x.getPartialDeviationForNoiseSymbol(noiseSymbol)),
-                    ExtendedRationalOps.mul(beta, y.getPartialDeviationForNoiseSymbol(noiseSymbol)));
+            ExtendedRational zi = mcMid.add(
+                    mcMid.mul(alpha, x.getPartialDeviationForNoiseSymbol(noiseSymbol)),
+                    mcMid.mul(beta, y.getPartialDeviationForNoiseSymbol(noiseSymbol)));
             z.putNoiseSymbolPartialDeviation(noiseSymbol, zi);
 
             a = mcInf.add(mcInf.mul(alpha, x.getPartialDeviationForNoiseSymbol(noiseSymbol)),
@@ -123,9 +125,9 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval numsToInterval(ExtendedRational l, ExtendedRational u) {
-        ExtendedRational centralValue = ExtendedRationalOps.mul(
-                ExtendedRationalOps.add(l, u), Utils.RAT_HALF);
-        ExtendedRational radius = ExtendedRationalOps.mul(ExtendedRationalOps.sub(u, l), Utils.RAT_HALF);
+        ExtendedRational centralValue = mcMid.mul(
+                mcMid.add(l, u), Utils.RAT_HALF);
+        ExtendedRational radius = mcMid.mul(mcMid.sub(u, l), Utils.RAT_HALF);
         NoiseSymbol noiseSymbol = addNoiseSymbol();
         return new AffineIntervalImpl(centralValue, radius, noiseSymbol);
     }
