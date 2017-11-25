@@ -17,7 +17,7 @@ public class AffineIntervalImplTest {
         Rational c = Rational.valueOf(2);
         Rational d = Rational.valueOf(3);
         AffineInterval affine1 = context.numsToInterval(a, b);
-        AffineInterval affine2 = context.numsToInterval(b, c);
+        AffineInterval affine2 = context.numsToInterval(b, d);
         AffineInterval affine3 = context.numsToInterval(d, d);
         AffineInterval affine4 = context.numsToInterval(b, b);
 
@@ -26,6 +26,8 @@ public class AffineIntervalImplTest {
         AffineInterval result2 = context.add(context.mul(affine1, context.sub(
                 affine2, affine4)), affine3);
         System.out.println(result);
-        System.out.println(result2);
+        System.out.println(context.mul(affine1, affine1));
+        System.out.println(context.recip(affine2));
+        System.out.println(((String) null) instanceof String);
     }
 }

@@ -84,6 +84,42 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
     }
 
     @Override
+    public AffineInterval affine(AffineInterval x, ExtendedRational alpha, ExtendedRational zeta, ExtendedRational delta) {
+        if (x.isEmpty() || x.isEntire()) {
+            return x;
+        }
+
+        ExtendedRational z0 = mcMid.add(mcMid.mul(alpha, x.mid()), zeta);
+        if (z0.eq(ExtendedRational.POSITIVE_INFINITY)) {
+            return EntireAffineInterval.entire();
+        }
+
+        AffineInterval z = new AffineIntervalImpl(z0);
+
+        ExtendedRational a = mcInf.add(mcInf.mul(alpha, x.mid()), zeta);
+        ExtendedRational b = mcSup.add(mcSup.mul(alpha, x.mid()), zeta);
+        delta = mcSup.add(mcSup.max(mcSup.sub(b, z0), mcSup.sub(z0, a)), delta);
+
+        for (NoiseSymbol noiseSymbol : x.getNoiseSymbolSet()) {
+            ExtendedRational zi =
+                    mcMid.mul(alpha, x.getPartialDeviationForNoiseSymbol(noiseSymbol));
+            z.putNoiseSymbolPartialDeviation(noiseSymbol, zi);
+
+            a = mcInf.mul(alpha, x.getPartialDeviationForNoiseSymbol(noiseSymbol));
+            b = mcSup.mul(alpha, x.getPartialDeviationForNoiseSymbol(noiseSymbol));
+            delta = mcSup.add(delta, mcSup.max(mcSup.sub(b, zi), mcSup.sub(zi, a)));
+        }
+
+        if (delta.eq(ExtendedRational.POSITIVE_INFINITY)) {
+            return EntireAffineInterval.entire();
+        }
+        NoiseSymbol noiseSymbol = addNoiseSymbol();
+        z.putNoiseSymbolPartialDeviation(noiseSymbol, delta);
+
+        return z;
+    }
+
+    @Override
     public boolean containsNoiseSymbol(NoiseSymbol noiseSymbol) {
         return noiseSymbolSet.contains(noiseSymbol);
     }
@@ -210,12 +246,56 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval recip(AffineInterval x) {
-        return null;
+        if (x.isEmpty() || x.isEntire()) {
+            return x;
+        }
+
+        if (x.inf().le(ExtendedRational.zero()) && x.sup().ge(ExtendedRational.zero())) {
+            return EntireAffineInterval.entire();
+        }
+
+        ExtendedRational a = x.mig();
+        ExtendedRational b = x.mag();
+        ExtendedRational alpha = ExtendedRationalOps.neg(ExtendedRationalOps.recip(
+                ExtendedRationalOps.sqr(b)));
+        ExtendedRational dMax = ExtendedRationalOps.sub(ExtendedRationalOps.recip(a),
+                ExtendedRationalOps.mul(alpha, a));
+        ExtendedRational dMin = ExtendedRationalOps.sub(ExtendedRationalOps.recip(b),
+                ExtendedRationalOps.mul(alpha, b));
+        ExtendedRational zeta = ExtendedRationalOps.mul(ExtendedRationalOps.add(dMin, dMax),
+                ExtendedRational.valueOf(0.5));
+        if (x.inf().lt(ExtendedRational.zero())) {
+            zeta = ExtendedRationalOps.neg(zeta);
+        }
+
+        ExtendedRational delta = ExtendedRationalOps.mul(ExtendedRationalOps.sub(dMax, dMin),
+                ExtendedRational.valueOf(0.5));
+
+        return affine(x, alpha, zeta, delta);
     }
 
     @Override
     public AffineInterval sqr(AffineInterval x) {
-        return null;
+        if (x.isEmpty() || x.isEntire()) {
+            return x;
+        }
+
+        ExtendedRational delta = ExtendedRationalOps.mul(ExtendedRationalOps.sqr(x.rad()),
+                ExtendedRational.valueOf(0.5f));
+
+        ExtendedRational sqrCentralValue = ExtendedRationalOps.add(ExtendedRationalOps.sqr(x.mid()),
+                delta);
+        AffineInterval sqr = new AffineIntervalImpl(sqrCentralValue);
+        for (NoiseSymbol noiseSymbol : x.getNoiseSymbolSet()) {
+            ExtendedRational partialDeviation = ExtendedRationalOps.mul(ExtendedRational.valueOf(2),
+                    ExtendedRationalOps.mul(x.mid(), x.getPartialDeviationForNoiseSymbol(noiseSymbol)));
+            sqr.putNoiseSymbolPartialDeviation(noiseSymbol, partialDeviation);
+        }
+
+        NoiseSymbol noiseSymbol = addNoiseSymbol();
+        sqr.putNoiseSymbolPartialDeviation(noiseSymbol, delta);
+
+        return sqr;
     }
 
     @Override

@@ -12,6 +12,9 @@ public interface AffineIntervalContext extends IntervalContext<AffineInterval> {
     AffineInterval affine(AffineInterval x, AffineInterval y, ExtendedRational alpha, ExtendedRational beta,
                        ExtendedRational zeta, ExtendedRational delta);
 
+    AffineInterval affine(AffineInterval x, ExtendedRational alpha,
+                          ExtendedRational zeta, ExtendedRational delta);
+
     boolean containsNoiseSymbol(NoiseSymbol noiseSymbol);
 
     boolean addNoiseSymbol(NoiseSymbol noiseSymbol);

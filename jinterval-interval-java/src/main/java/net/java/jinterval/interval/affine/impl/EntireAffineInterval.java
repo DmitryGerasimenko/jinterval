@@ -14,7 +14,7 @@ public class EntireAffineInterval extends RationalInterval.Unbounded implements 
     public static final EntireAffineInterval ENTIRE_AFFINE_INTERVAL = new EntireAffineInterval();
 
     private EntireAffineInterval() {
-        super(ExtendedRational.POSITIVE_INFINITY, ExtendedRational.NEGATIVE_INFINITY, Decoration.TRV);
+        super(ExtendedRational.NEGATIVE_INFINITY, ExtendedRational.POSITIVE_INFINITY, Decoration.TRV);
     }
 
     /**

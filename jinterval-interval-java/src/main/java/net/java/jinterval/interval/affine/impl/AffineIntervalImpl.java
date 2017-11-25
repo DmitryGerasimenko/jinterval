@@ -53,6 +53,11 @@ public class AffineIntervalImpl implements AffineInterval {
         partialDeviations.put(noiseSymbol, radius);
     }
 
+    public AffineIntervalImpl(ExtendedRational centralValue, Map<NoiseSymbol, ExtendedRational> symbolRadiusMap) {
+        this.centralValue = centralValue;
+        partialDeviations.putAll(symbolRadiusMap);
+    }
+
     @Override
     public SetInterval toSetInterval() {
         return null;
@@ -312,7 +317,7 @@ public class AffineIntervalImpl implements AffineInterval {
 
     @Override
     public boolean isEntire() {
-        return false;
+        return !rad().lt(ExtendedRational.POSITIVE_INFINITY);
     }
 
     @Override
@@ -377,6 +382,6 @@ public class AffineIntervalImpl implements AffineInterval {
 
     @Override
     public String toString() {
-        return "[" + inf() + "," + sup() + "]";
+        return "[" + doubleInf() + ", " + doubleSup() + "]";
     }
 }
