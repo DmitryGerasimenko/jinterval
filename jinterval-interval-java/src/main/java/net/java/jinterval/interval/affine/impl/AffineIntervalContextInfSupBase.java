@@ -36,7 +36,7 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval affine(AffineInterval x, AffineInterval y, ExtendedRational alpha, ExtendedRational beta,
-                              ExtendedRational zeta, ExtendedRational delta) {
+                                 ExtendedRational zeta, ExtendedRational delta) {
         if (x.isEmpty() || y.isEmpty()) {
             return EmptyAffineInterval.empty();
         }
@@ -161,9 +161,8 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval numsToInterval(ExtendedRational l, ExtendedRational u) {
-        ExtendedRational centralValue = mcMid.mul(
-                mcMid.add(l, u), Utils.RAT_HALF);
-        ExtendedRational radius = mcMid.mul(mcMid.sub(u, l), Utils.RAT_HALF);
+        ExtendedRational centralValue = centralValue(l, u);
+        ExtendedRational radius = radiusValue(l, u);
         NoiseSymbol noiseSymbol = addNoiseSymbol();
         return new AffineIntervalImpl(centralValue, radius, noiseSymbol);
     }
@@ -241,7 +240,7 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval div(AffineInterval x, AffineInterval y) {
-        return null;
+        return mul(x, recip(y));
     }
 
     @Override
@@ -262,14 +261,12 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
                 ExtendedRationalOps.mul(alpha, a));
         ExtendedRational dMin = ExtendedRationalOps.sub(ExtendedRationalOps.recip(b),
                 ExtendedRationalOps.mul(alpha, b));
-        ExtendedRational zeta = ExtendedRationalOps.mul(ExtendedRationalOps.add(dMin, dMax),
-                ExtendedRational.valueOf(0.5));
+        ExtendedRational zeta = centralValue(dMin, dMax);
         if (x.inf().lt(ExtendedRational.zero())) {
             zeta = ExtendedRationalOps.neg(zeta);
         }
 
-        ExtendedRational delta = ExtendedRationalOps.mul(ExtendedRationalOps.sub(dMax, dMin),
-                ExtendedRational.valueOf(0.5));
+        ExtendedRational delta = radiusValue(dMin, dMax);
 
         return affine(x, alpha, zeta, delta);
     }
@@ -281,13 +278,13 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
         }
 
         ExtendedRational delta = ExtendedRationalOps.mul(ExtendedRationalOps.sqr(x.rad()),
-                ExtendedRational.valueOf(0.5f));
+                Utils.RAT_HALF);
 
         ExtendedRational sqrCentralValue = ExtendedRationalOps.add(ExtendedRationalOps.sqr(x.mid()),
                 delta);
         AffineInterval sqr = new AffineIntervalImpl(sqrCentralValue);
         for (NoiseSymbol noiseSymbol : x.getNoiseSymbolSet()) {
-            ExtendedRational partialDeviation = ExtendedRationalOps.mul(ExtendedRational.valueOf(2),
+            ExtendedRational partialDeviation = ExtendedRationalOps.mul(Utils.TWO,
                     ExtendedRationalOps.mul(x.mid(), x.getPartialDeviationForNoiseSymbol(noiseSymbol)));
             sqr.putNoiseSymbolPartialDeviation(noiseSymbol, partialDeviation);
         }
@@ -300,7 +297,43 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval sqrt(AffineInterval x) {
-        return null;
+        if (x.isEmpty() || x.isEntire()) {
+            return x;
+        }
+
+        ExtendedRational xSup = x.sup();
+        if (xSup.lt(ExtendedRational.zero())) {
+            return EmptyAffineInterval.empty();
+        }
+
+        if (!xSup.lt(ExtendedRational.POSITIVE_INFINITY)) {
+            return EntireAffineInterval.entire();
+        }
+        ExtendedRational xInf = ExtendedRationalOps.max(x.inf(), ExtendedRational.zero());
+
+        ExtendedRational sqrtInf = ExtendedRationalOps.sqrt(xInf);
+        ExtendedRational sqrtSup = ExtendedRationalOps.sqrt(xSup);
+        ExtendedRational gamma = ExtendedRationalOps.add(sqrtInf, sqrtSup);
+        ExtendedRational dInf = ExtendedRationalOps.mul(sqrtInf, ExtendedRationalOps.sub(ExtendedRational.one(),
+                ExtendedRationalOps.div(sqrtInf, gamma)));
+        ExtendedRational dSup = ExtendedRationalOps.mul(sqrtSup, ExtendedRationalOps.sub(ExtendedRational.one(),
+                ExtendedRationalOps.div(sqrtSup, gamma)));
+
+        ExtendedRational dMin = ExtendedRationalOps.min(dInf, dSup);
+        ExtendedRational dMax = ExtendedRationalOps.div(gamma, ExtendedRational.valueOf(4));
+
+        ExtendedRational zeta = centralValue(dMin, dMax);
+        ExtendedRational delta = radiusValue(dMin, dMax);
+        return affine(x, ExtendedRationalOps.recip(gamma), zeta, delta);
+
+//        Min-range approx
+//        ExtendedRational alpha = ExtendedRationalOps.recip(ExtendedRationalOps.mul(Utils.TWO,
+//                sqrtSup));
+//        ExtendedRational zeta = ExtendedRationalOps.div(sqrtSup, Utils.TWO);
+//        ExtendedRational delta = ExtendedRationalOps.div(ExtendedRationalOps.sqr(
+//                ExtendedRationalOps.sub(sqrtSup, sqrtInf)),
+//                ExtendedRationalOps.mul(Utils.TWO, sqrtSup));
+//        return affine(x, alpha, zeta, delta);
     }
 
     @Override
@@ -455,12 +488,40 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval abs(AffineInterval x) {
+        if (x.isEntire() || x.isEmpty()) {
+            return x;
+        }
+
+        ExtendedRational xInf = x.inf();
+        ExtendedRational xSup = x.sup();
+
+        if (xInf.ge(ExtendedRational.zero())) {
+            return x;
+        }
+
+        if (xSup.le(ExtendedRational.zero())) {
+            return neg(x);
+        }
+
+        ExtendedRational radius = x.rad();
+        ExtendedRational alpha = ExtendedRationalOps.div(x.mid(), radius);
+        ExtendedRational gamma = ExtendedRationalOps.mul(ExtendedRationalOps.sub(ExtendedRational.one(),
+                alpha), );
         return null;
     }
 
     @Override
     public AffineInterval min(AffineInterval x1, AffineInterval x2) {
-        return null;
+        if (x1.isEmpty() || x2.isEmpty()) {
+            return EmptyAffineInterval.empty();
+        }
+
+        ExtendedRational inf = ExtendedRationalOps.min(x1.inf(), x2.inf());
+        ExtendedRational sup = ExtendedRationalOps.min(x1.sup(), x2.sup());
+        ExtendedRational centralValue = centralValue(inf, sup);
+        ExtendedRational radiusValue = radiusValue(inf, sup);
+
+        return new AffineIntervalImpl(centralValue, radiusValue, addNoiseSymbol());
     }
 
     @Override
@@ -470,7 +531,16 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
 
     @Override
     public AffineInterval max(AffineInterval x1, AffineInterval x2) {
-        return null;
+        if (x1.isEmpty() || x2.isEmpty()) {
+            return EmptyAffineInterval.empty();
+        }
+
+        ExtendedRational inf = ExtendedRationalOps.max(x1.inf(), x2.inf());
+        ExtendedRational sup = ExtendedRationalOps.max(x1.sup(), x2.sup());
+        ExtendedRational centralValue = centralValue(inf, sup);
+        ExtendedRational radiusValue = radiusValue(inf, sup);
+
+        return new AffineIntervalImpl(centralValue, radiusValue, addNoiseSymbol());
     }
 
     @Override
@@ -496,5 +566,13 @@ public class AffineIntervalContextInfSupBase implements AffineIntervalContext {
     @Override
     public AffineInterval convexHull(AffineInterval x, AffineInterval y) {
         return null;
+    }
+
+    private static ExtendedRational centralValue(ExtendedRational inf, ExtendedRational sup) {
+        return ExtendedRationalOps.mul(ExtendedRationalOps.add(inf, sup), Utils.RAT_HALF);
+    }
+
+    private static ExtendedRational radiusValue(ExtendedRational inf, ExtendedRational sup) {
+        return ExtendedRationalOps.mul(ExtendedRationalOps.sub(sup, inf), Utils.RAT_HALF);
     }
 }
